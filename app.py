@@ -6,18 +6,22 @@ from inference_sdk import InferenceHTTPClient
 import google.generativeai as genai
 from gtts import gTTS
 from io import BytesIO
+from dotenv import load_dotenv
 
-# Initialize the Roboflow client
-ROBOFLOW_API_KEY = "OH1jETzlO5GDIWBhJb57"
+# Load environment variables from .env file
+load_dotenv()
+
+# Get API keys from environment
+ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 MODEL_ID = "nigeria-food/2"
 
+# Initialize APIs
 roboflow_client = InferenceHTTPClient(
     api_url="https://detect.roboflow.com",
     api_key=ROBOFLOW_API_KEY
 )
 
-# Initialize Gemini API
-GEMINI_API_KEY = "AIzaSyBvtwP2ulNHPQexfPhhR13U30pvF2OswrU"
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel(model_name="gemini-1.5-flash")
 
