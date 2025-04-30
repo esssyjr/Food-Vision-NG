@@ -1,6 +1,6 @@
 # 🍲 FOOD VISION V1
 
-A powerful Nigerian food detection and analysis app that **seamlessly integrates Roboflow, Google Gemini AI, Gradio, and Text-to-Speech** technologies. Upload any food image, and the app detects the dish, explains its **health benefits**, **nutritional value**, **suitability for diabetics**, **common ingredients**, and **preparation methods** — with audio output in real time.
+A powerful Nigerian food detection and analysis app that **seamlessly integrates Roboflow, Google Gemini AI, Gradio, and Text-to-Speech** technologies. Upload any food image, and the system detects the dish, explains its **health benefits**, **nutritional value**, **suitability for diabetics**, **common ingredients**, and **preparation methods** — with audio output in real time.
 
 > ⚡️ Built to simplify how developers can build intelligent, multimodal systems — from vision to voice — with minimal code!
 
@@ -9,11 +9,11 @@ A powerful Nigerian food detection and analysis app that **seamlessly integrates
 ## 🎯 Key Features
 
 - 🧠 **AI-Powered Food Insights** — Get instant health and nutritional data
-- 🖼️ **Food Detection** — Uses [Roboflow](https://roboflow.com/) for robust image classification
+- 🖼️ **Food Detection** — Uses [Roboflow](https://roboflow.com/) for robust image detection using a pretrained model
 - 💬 **Gemini AI Integration** — Summarizes complex food facts into concise and relevant bullet points
 - 🔊 **Voice Output** — Uses `gTTS` to speak results aloud
 - 🎛️ **Interactive UI** — Powered by [Gradio](https://www.gradio.app/)
-- 🌍 **Works for any cuisine**, not just Nigerian dishes
+
 
 ---
 
@@ -21,11 +21,11 @@ A powerful Nigerian food detection and analysis app that **seamlessly integrates
 
 This project demonstrates how easy it is to:
 
-- Build **AI-first applications** that combine **vision**, **language**, and **voice**
+- Build **AI-first system** that combine **vision**, **language**, and **voice**
 - Create tools for **education**, **health awareness**, and **local cuisine recognition**
 - Use cutting-edge APIs to **solve real problems faster** and **reduce development time**
 
-Whether you're a **developer**, **researcher**, or just curious about what's on your plate — this app brings food analysis to life with just an image.
+Whether you're a **developer**, **researcher**, or just curious about what's on your plate — this system brings food analysis to life with just an image.
 
 ---
 
@@ -94,7 +94,7 @@ food-vision-v1/
 
 I’ve written a detailed breakdown of how I built this app and how you can too using Roboflow, Gemini, and Gradio:
 
-👉 **Read the full article here**: [*Add your Medium link here*](#)
+👉 **Read the full article here**: [*[Add your Medium link here](https://medium.com/@ismailismailtj/integrating-gemini-roboflow-gradio-and-hugging-face-to-build-ai-powered-systems-887f4d91f60b)*](#)
 
 ---
 
@@ -119,7 +119,7 @@ MIT License (or any open-source license of your choice)
 - [Roboflow](https://roboflow.com)
 - [Google Generative AI (Gemini)](https://ai.google.dev/)
 - [gTTS – Google Text-to-Speech](https://pypi.org/project/gTTS/)
-- Built by **Esssyjr** under **EJAZTECH.AI**
+- Built by **Ismail Ismail Tijjani AND Sunus Muhammad Ibrahim** under **EJAZTECH.AI**
 
 ---
 
