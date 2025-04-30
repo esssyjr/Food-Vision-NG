@@ -4,3 +4,4 @@ inference_sdk
 google-generativeai
 requests
 gTTS
+python-dotenv
