@@ -94,7 +94,7 @@ food-vision-v1/
 
 I’ve written a detailed breakdown of how I built this app and how you can too using Roboflow, Gemini, and Gradio:
 
-👉 **Read the full article here**: [*[Add your Medium link here](https://medium.com/@ismailismailtj/integrating-gemini-roboflow-gradio-and-hugging-face-to-build-ai-powered-systems-887f4d91f60b)*](#)
+👉 **Read the full article here**: [*[Medium link](https://medium.com/@ismailismailtj/integrating-gemini-roboflow-gradio-and-hugging-face-to-build-ai-powered-systems-887f4d91f60b)*](#)
 
 ---
 
