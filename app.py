@@ -1,235 +1,215 @@
-import gradio as gr
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
-import tempfile
 import os
-from inference_sdk import InferenceHTTPClient
-import google.generativeai as genai
-from gtts import gTTS
-from io import BytesIO
-from dotenv import load_dotenv
+import tempfile
+from google import generativeai
+import random
+import io
+import logging
+from pydantic import BaseModel
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.pagesizes import A4
+from fastapi.responses import FileResponse
+import requests
 
-# Load environment variables from .env file
-load_dotenv()
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Get API keys from environment
-ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-MODEL_ID = "nigeria-food/2"
+# App initialization
+app = FastAPI(title="Nigerian Food Vision API")
 
-# Initialize APIs
-roboflow_client = InferenceHTTPClient(
-    api_url="https://detect.roboflow.com",
-    api_key=ROBOFLOW_API_KEY
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # change to your frontend domain in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel(model_name="gemini-1.5-flash")
+# Set API Keys
+API_KEYS = [
+    os.getenv("GOOGLE_API_KEY_1", "AIzaSyBvtwP2ulNHPQexfPhhR13U30pvF2OswrU"),
+    os.getenv("GOOGLE_API_KEY_2", "AIzaSyD0dLXPPrZmLbnHOj3f9twHmT_PZc15wMo"),
+    os.getenv("GOOGLE_API_KEY_3", "AIzaSyCKYS00SLw0-vOLaPbhCPjK2ghpA5jrj9A"),
+    os.getenv("GOOGLE_API_KEY_4", "AIzaSyAvcvFgl-gjutXpsLW_jnC-zSs6lTXXiU0"),
+]
 
-# Function to get food information with specific focus
-def get_food_info(food_names, info_type):
-    food_query = ", ".join(food_names)
-    
-    prompts = {
-        "benefits": f"""
-        Provide a BRIEF summary of the health benefits of {food_query}.
-        If this is not Nigerian cuisine, still provide useful benefits information.
-        Focus only on PROVEN health benefits.
-        Keep your answer under 100 words and use bullet points.
-        """,
-        
-        "calories": f"""
-        Provide a BRIEF overview of the caloric content and macronutrients in {food_query}.
-        If this is not Nigerian cuisine, still provide approximate nutritional information.
-        Include calories per serving, protein, carbs, and fats if known.
-        Keep your answer under 100 words and use bullet points.
-        """,
-        
-        "diabetic": f"""
-        Explain BRIEFLY if {food_query} is suitable for diabetic patients.
-        Consider glycemic index, carb content, and potential blood sugar impact.
-        If this is not Nigerian cuisine, still provide relevant information for diabetics.
-        Keep your answer under 100 words and use bullet points.
-        """,
-        
-        "ingredients": f"""
-        List the main ingredients typically found in {food_query}.
-        If this is not Nigerian cuisine, still list common ingredients.
-        Keep your answer under 100 words and use bullet points.
-        """,
-        
-        "preparation": f"""
-        Give a BRIEF overview of how {food_query} is typically prepared.
-        If this is not Nigerian cuisine, still provide basic preparation method.
-        Keep your answer under 100 words and use bullet points.
-        """
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "YOUR_YOUTUBE_KEY")
+
+# Model options
+INFO_OPTIONS = [
+    "Calories content",
+    "Diabetic friendly?",
+    "Preparation method",
+    "Ingredients",
+    "Nutritional content",
+    "Allergen info",
+    "Hypertension friendly?",
+    "Kidney safe?"
+]
+
+# Configure Gemini
+def configure_gemini():
+    api_key = random.choice(API_KEYS)
+    if not api_key:
+        raise ValueError("No valid API key provided.")
+    generativeai.configure(api_key=api_key)
+    return generativeai.GenerativeModel("gemini-1.5-flash")
+
+# ================= DETECT FOOD =================
+@app.post("/detect_food")
+async def detect_food(image: UploadFile = File(...), lang: str = Form(default="english")):
+    try:
+        image_data = await image.read()
+        img = Image.open(io.BytesIO(image_data))
+
+        if img.format not in ["JPEG", "PNG"]:
+            raise HTTPException(status_code=400, detail="Only JPEG or PNG images are supported.")
+
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp_file:
+            img.save(temp_file.name)
+            image_path = temp_file.name
+
+        model = configure_gemini()
+        uploaded = generativeai.upload_file(path=image_path, mime_type="image/jpeg")
+
+        prompt = "Identify the name of the food shown in the image. Respond with ONLY the name (e.g., Jollof rice, Egusi soup, etc)."
+        response = model.generate_content([uploaded, prompt])
+        os.unlink(image_path)
+
+        food_name = response.text.strip()
+
+        return {
+            "food_name": food_name,
+            "options": INFO_OPTIONS
+        }
+
+    except Exception as e:
+        logger.error(f"Error in detect_food: {e}")
+        raise HTTPException(status_code=500, detail=f"Detection error: {e}")
+
+# ================= FOOD INFO =================
+class InfoRequest(BaseModel):
+    food_name: str
+    info_type: str  # e.g., "Calories content"
+    diseases: list[str] = []
+
+@app.post("/food_info")
+async def food_info(request: InfoRequest):
+    try:
+        model = configure_gemini()
+
+        disease_info = f" The person has these underlying conditions: {', '.join(request.diseases)}." if request.diseases else ""
+        prompt = (
+            f"You are a food detection expert. Give specific information about {request.food_name}. "
+            f"The user is asking: '{request.info_type}'.{disease_info} "
+            f"Provide the answer in a friendly, short, and informative tone."
+        )
+        response = model.generate_content(prompt)
+
+        return {
+            "food_name": request.food_name,
+            "info_type": request.info_type,
+            "diseases": request.diseases,
+            "response": response.text.strip()
+        }
+
+    except Exception as e:
+        logger.error(f"Error in food_info: {e}")
+        raise HTTPException(status_code=500, detail=f"Info error: {e}")
+
+# ================= PREPARATION VIDEO =================
+class PrepareRequest(BaseModel):
+    food_name: str
+    diseases: list[str] = []
+
+@app.post("/prepare_food")
+async def prepare_food(request: PrepareRequest):
+    try:
+        query = f"How to prepare {request.food_name}"
+        url = (
+            f"https://www.googleapis.com/youtube/v3/search?part=snippet"
+            f"&q={query}&key={YOUTUBE_API_KEY}&maxResults=1&type=video"
+        )
+        res = requests.get(url)
+        res.raise_for_status()
+        data = res.json()
+
+        if not data.get("items"):
+            return {
+                "food_name": request.food_name,
+                "preparation_video": "No preparation video found on YouTube.",
+                "diseases": request.diseases
+            }
+
+        item = data["items"][0]
+        video_id = item["id"]["videoId"]
+        title = item["snippet"]["title"]
+        link = f"https://www.youtube.com/watch?v={video_id}"
+
+        return {
+            "food_name": request.food_name,
+            "preparation_video": {"title": title, "link": link},
+            "diseases": request.diseases
+        }
+
+    except Exception as e:
+        logger.error(f"Error in prepare_food: {e}")
+        raise HTTPException(status_code=500, detail=f"Preparation video error: {e}")
+
+# ================= PDF EXPORT =================
+class PDFRequest(BaseModel):
+    food_name: str
+    info: dict  # { "Calories content": "xx", "Ingredients": "yy", ... }
+    diseases: list[str] = []
+    preparation_video: dict = None  # { "title": "xx", "link": "yy" }
+
+@app.post("/generate_pdf")
+async def generate_pdf(request: PDFRequest):
+    try:
+        file_name = f"{request.food_name.replace(' ', '_')}_report.pdf"
+        file_path = os.path.join(tempfile.gettempdir(), file_name)
+
+        doc = SimpleDocTemplate(file_path, pagesize=A4)
+        styles = getSampleStyleSheet()
+        story = []
+
+        # Title
+        story.append(Paragraph(f"Food Report: {request.food_name}", styles["Title"]))
+        story.append(Spacer(1, 12))
+
+        # Underlying Diseases
+        if request.diseases:
+            story.append(Paragraph(f"Underlying conditions: {', '.join(request.diseases)}", styles["Normal"]))
+            story.append(Spacer(1, 12))
+
+        # Food Info Section
+        story.append(Paragraph("Food Information:", styles["Heading2"]))
+        for key, value in request.info.items():
+            story.append(Paragraph(f"<b>{key}:</b> {value}", styles["Normal"]))
+            story.append(Spacer(1, 8))
+
+        # Preparation Video Section
+        if request.preparation_video:
+            story.append(Spacer(1, 12))
+            story.append(Paragraph("Preparation Video:", styles["Heading2"]))
+            story.append(Paragraph(f"{request.preparation_video['title']}", styles["Normal"]))
+            story.append(Paragraph(f"Link: {request.preparation_video['link']}", styles["Normal"]))
+
+        doc.build(story)
+
+        return FileResponse(file_path, media_type="application/pdf", filename=file_name)
+
+    except Exception as e:
+        logger.error(f"Error in generate_pdf: {e}")
+        raise HTTPException(status_code=500, detail=f"PDF generation error: {e}")
+
+# ================= ROOT =================
+@app.get("/")
+async def root():
+    return {
+        "message": "Welcome to Nigerian Food Vision API. Endpoints available: /detect_food, /food_info, /prepare_food, /generate_pdf"
     }
-    
-    try:
-        # Get response from Gemini AI
-        response = model.generate_content(prompts[info_type])
-        return response.text
-    except Exception as e:
-        return f"Error getting information: {str(e)}"
-
-# Function to convert text to speech
-def text_to_speech(text, language='en'):
-    tts = gTTS(text=text, lang=language)
-    audio_file = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
-    tts.save(audio_file.name)
-    return audio_file.name
-
-# Function to process the uploaded image
-def detect_food(image):
-    if image is None:
-        return "Please upload an image first.", [], gr.update(visible=False)
-    
-    try:
-        # Save the uploaded image to a temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp_file:
-            image_pil = Image.fromarray(image)  # Convert the numpy array to a PIL Image
-            image_pil.save(tmp_file, format='JPEG')
-            temp_file_path = tmp_file.name
-        
-        # Send to Roboflow for detection using the file path
-        result = roboflow_client.infer(temp_file_path, model_id=MODEL_ID)
-        
-        # Clean up the temporary file
-        os.unlink(temp_file_path)
-        
-        # Process the result
-        if "predictions" in result and len(result["predictions"]) > 0:
-            predictions = result["predictions"]
-            
-            # Sort predictions by confidence
-            predictions.sort(key=lambda x: x.get("confidence", 0), reverse=True)
-            
-            # Get top predictions (confidence > 20%)
-            top_predictions = [pred for pred in predictions if pred.get("confidence", 0) > 0.2]
-            
-            # Get food names for all top predictions
-            food_names = [pred.get("class", "Unknown") for pred in top_predictions]
-            
-            # Create detection result text
-            if len(food_names) == 1:
-                detection_result = f"This is {food_names[0]}! What would you like to know about it?"
-            else:
-                food_list = ", ".join(food_names[:-1]) + " and " + food_names[-1] if len(food_names) > 1 else food_names[0]
-                detection_result = f"This is {food_list}! What would you like to know about these foods?"
-            
-            return detection_result, food_names, gr.update(visible=True)
-        else:
-            return "No food detected in the image. Please try a different image.", [], gr.update(visible=False)
-    
-    except Exception as e:
-        # Clean up in case of error
-        if 'temp_file_path' in locals():
-            try:
-                os.unlink(temp_file_path)
-            except:
-                pass
-        return f"Error in detection: {str(e)}", [], gr.update(visible=False)
-
-# Create dedicated handler functions for each button
-def show_benefits(detected_foods):
-    info = get_food_info(detected_foods, "benefits")
-    audio_file = text_to_speech(info, language='en')  # Convert Gemini output to speech
-    return info, audio_file
-
-def show_calories(detected_foods):
-    info = get_food_info(detected_foods, "calories")
-    audio_file = text_to_speech(info, language='en')
-    return info, audio_file
-
-def show_diabetic(detected_foods):
-    info = get_food_info(detected_foods, "diabetic")
-    audio_file = text_to_speech(info, language='en')
-    return info, audio_file
-
-def show_ingredients(detected_foods):
-    info = get_food_info(detected_foods, "ingredients")
-    audio_file = text_to_speech(info, language='en')
-    return info, audio_file
-
-def show_preparation(detected_foods):
-    info = get_food_info(detected_foods, "preparation")
-    audio_file = text_to_speech(info, language='en')
-    return info, audio_file
-
-# Create Gradio interface with theme
-theme = gr.themes.Soft(
-    primary_hue="orange",
-    secondary_hue="blue",
-)
-
-with gr.Blocks(title="Nigerian Food Detector with Voice Output", theme=theme) as demo:
-    gr.Markdown("# FOOD VISION V1")
-    
-    # Store detected foods for button actions
-    detected_foods_state = gr.State([])
-
-    # Create layout
-    with gr.Row():
-        input_image = gr.Image(label="Upload Food Image", type="numpy")
-    
-    detect_button = gr.Button("Detect Food", variant="primary", size="lg")
-    
-    # Result and options section
-    detection_text = gr.Markdown()
-    
-    # Option buttons (initially hidden)
-    options_row = gr.Row(visible=False)
-    with options_row:
-        benefits_btn = gr.Button("Health Benefits", size="sm")
-        calories_btn = gr.Button("Calories & Nutrition", size="sm")
-        diabetic_btn = gr.Button("Diabetic Friendly?", size="sm")
-        ingredients_btn = gr.Button("Main Ingredients", size="sm")
-        preparation_btn = gr.Button("Preparation Method", size="sm")
-    
-    # Information display
-    info_display = gr.Markdown()
-    audio_output = gr.Audio()
-
-    # Set up detection event
-    detect_button.click(
-        fn=detect_food,
-        inputs=[input_image],
-        outputs=[detection_text, detected_foods_state, options_row]
-    )
-    
-    # Set up button click events
-    benefits_btn.click(
-        fn=show_benefits,
-        inputs=[detected_foods_state],
-        outputs=[info_display, audio_output]
-    )
-    
-    calories_btn.click(
-        fn=show_calories,
-        inputs=[detected_foods_state],
-        outputs=[info_display, audio_output]
-    )
-    
-    diabetic_btn.click(
-        fn=show_diabetic,
-        inputs=[detected_foods_state],
-        outputs=[info_display, audio_output]
-    )
-    
-    ingredients_btn.click(
-        fn=show_ingredients,
-        inputs=[detected_foods_state],
-        outputs=[info_display, audio_output]
-    )
-    
-    preparation_btn.click(
-        fn=show_preparation,
-        inputs=[detected_foods_state],
-        outputs=[info_display, audio_output]
-    )
-    
-    gr.Markdown("---")
-    gr.Markdown("Powered by EJAZTECH.AI")
-
-# Launch the app
-if __name__ == "__main__":
-    demo.launch()
