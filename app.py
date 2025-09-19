@@ -31,10 +31,8 @@ app.add_middleware(
 
 # Set API Keys
 API_KEYS = [
-    os.getenv("GOOGLE_API_KEY_1", "AIzaSyBvtwP2ulNHPQexfPhhR13U30pvF2OswrU"),
-    os.getenv("GOOGLE_API_KEY_2", "AIzaSyD0dLXPPrZmLbnHOj3f9twHmT_PZc15wMo"),
-    os.getenv("GOOGLE_API_KEY_3", "AIzaSyCKYS00SLw0-vOLaPbhCPjK2ghpA5jrj9A"),
-    os.getenv("GOOGLE_API_KEY_4", "AIzaSyAvcvFgl-gjutXpsLW_jnC-zSs6lTXXiU0"),
+    os.getenv("GOOGLE_API_KEY_1", "AIzaSyBCTKZC-4cKw-k6qEj0s4j9MisiNQMFe-c"),
+
 ]
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "YOUR_YOUTUBE_KEY")
