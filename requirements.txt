@@ -1,7 +1,8 @@
-gradio 
-pillow 
-inference_sdk 
+fastapi
+uvicorn
+pillow
 google-generativeai
+pydantic
+reportlab
 requests
-gTTS
-python-dotenv
+python-multipart
