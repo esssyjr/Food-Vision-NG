@@ -69,14 +69,18 @@ async def detect_food(image: UploadFile = File(...), lang: str = Form(default="e
         if img.format not in ["JPEG", "PNG"]:
             raise HTTPException(status_code=400, detail="Only JPEG or PNG images are supported.")
 
+        # 🔥 Fix: Convert RGBA to RGB (to handle transparency before saving as JPEG)
+        if img.mode == "RGBA":
+            img = img.convert("RGB")
+
         with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp_file:
-            img.save(temp_file.name)
+            img.save(temp_file.name, format="JPEG")
             image_path = temp_file.name
 
         model = configure_gemini()
         uploaded = generativeai.upload_file(path=image_path, mime_type="image/jpeg")
 
-        prompt = "Identify the name of the food shown in the image. Respond with ONLY the name (e.g., Jollof rice, Egusi soup, etc)."
+        prompt = f"Identify the name of the food shown in the image. Respond with ONLY the name (e.g., Jollof rice, Egusi soup, etc)."
         response = model.generate_content([uploaded, prompt])
         os.unlink(image_path)
 
@@ -90,6 +94,7 @@ async def detect_food(image: UploadFile = File(...), lang: str = Form(default="e
     except Exception as e:
         logger.error(f"Error in detect_food: {e}")
         raise HTTPException(status_code=500, detail=f"Detection error: {e}")
+
 
 # ================= FOOD INFO =================
 class InfoRequest(BaseModel):
